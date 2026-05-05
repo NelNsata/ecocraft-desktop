@@ -47,7 +47,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "ใส่ชื่อผู้ใช้_GitHub_ของคุณตรงนี้",
+        "owner": "NelNsata",
         "repo": "ใส่ชื่อ_Repository_ของคุณตรงนี้"
       }
     ]

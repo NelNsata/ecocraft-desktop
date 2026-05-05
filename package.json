@@ -47,7 +47,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "Phanu",
+        "owner": "NelNsata",
         "repo": "ecocraft-desktop"
       }
     ]

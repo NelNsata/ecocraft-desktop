@@ -21,6 +21,7 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@supabase/supabase-js": "^2.105.3",
     "electron-updater": "^6.8.3"
   },
   "devDependencies": {
@@ -42,7 +43,9 @@
   "build": {
     "appId": "com.ecocraft.pro",
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     },
     "publish": [
       {

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { db } from './firebase'; // นำเข้าฐานข้อมูลที่เราสร้างไว้
+import { db } from './firebase'; 
 
 // --- Global CSS ---
 const globalStyle = `
@@ -31,18 +31,14 @@ const globalStyle = `
   .gradient-text { background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   .stat-card { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
   .ingredient-badge { background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 4px 10px; border-radius: 20px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
-  .table-container { width: 100%; overflow-x: auto; }
   .dashboard-layout { display: flex; width: 100%; height: 100vh; overflow: hidden; }
   .sidebar { width: 280px; flex-shrink: 0; background: rgba(15, 23, 42, 0.8); border-right: 1px solid rgba(255,255,255,0.05); padding: 24px; display: flex; flex-direction: column; gap: 16px; backdrop-filter: blur(10px); overflow-y: auto; transition: all 0.3s ease; }
   .main-content { flex: 1; padding: 32px 48px; overflow-y: auto; }
   .content-wrapper { width: 100%; max-width: 100%; }
   .top-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 32px; }
   .content-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 32px; align-items: flex-start; }
-  @media (max-width: 1200px) { .content-grid { grid-template-columns: 1fr; } }
-  @media (max-width: 768px) { .dashboard-layout { flex-direction: column; height: auto; min-height: 100vh; } .sidebar { width: 100%; height: auto; max-height: 450px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); } .main-content { padding: 20px; } .header-actions { flex-direction: column; align-items: flex-start; gap: 16px; } .header-actions button { width: 100%; } }
 `;
 
-// ฐานข้อมูลเริ่มต้น (ใช้ตอนเปิดแอปครั้งแรกสุด)
 const defaultData = [{
   id: 1, name: 'Freedom Community', igRate: 200, bmToCash: 10,   
   materials: [
@@ -57,10 +53,7 @@ const defaultData = [{
   ],
   recipes: [
     { id: 'r1', name: 'Blueprint (วิธี I)', category: 'Pool Cue', chance: 50, ingredients: [{ matId: 'm1', qty: 2 }, { matId: 'm3', qty: 1 }, { matId: 'm_cash', qty: 250000 }] },
-    { id: 'r2', name: 'Blueprint (วิธี II)', category: 'Pool Cue', chance: 100, ingredients: [{ matId: 'm1', qty: 5 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 500000 }] },
-    { id: 'r3', name: 'อัปเกรดขั้น I', category: 'Pool Cue', chance: 70, ingredients: [{ matId: 'm5', qty: 1 }, { matId: 'm4', qty: 4 }, { matId: 'm6', qty: 100 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 100000 }] },
     { id: 'rk1', name: 'สร้าง Knife', category: 'Knife', chance: 100, ingredients: [{ matId: 'm5', qty: 1 }, { matId: 'm4', qty: 5 }, { matId: 'm6', qty: 200 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 50000 }] },
-    { id: 'ro1', name: 'คราฟต์ผลึกทะเล', category: 'วัตถุดิบอื่นๆ', chance: 50, ingredients: [{ matId: 'm2', qty: 3 }, { matId: 'm1', qty: 10 }, { matId: 'm6', qty: 25 }, { matId: 'm_bm', qty: 2000 }] },
   ]
 }];
 
@@ -72,47 +65,53 @@ export default function UltimateCraftingDashboard() {
   const [isRecipeEditMode, setIsRecipeEditMode] = useState(false);
   const [editingCityId, setEditingCityId] = useState(null);
   const [editCityName, setEditCityName] = useState('');
-  
   const [showNewCatInput, setShowNewCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
-
   const [calcTHB, setCalcTHB] = useState('');
   const [calcIG, setCalcIG] = useState('');
 
-  // 1. ดึงและฟังการอัปเดตข้อมูลแบบ Real-time จาก Firebase
+  // 1. ดึงและฟังการอัปเดตข้อมูลแบบ Real-time
   useEffect(() => {
-    // กำหนดพิกัดข้อมูลบน Cloud (คอลเล็กชัน: serverData, เอกสาร: mainConfig)
     const docRef = doc(db, 'serverData', 'mainConfig');
-    
-    // onSnapshot จะทำงานทันทีที่โหลดเสร็จ และทำงานอีกครั้งทุกครั้งที่มีคนแก้ข้อมูล
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data().cities;
         setCities(data);
         if (!activeCityId && data.length > 0) setActiveCityId(data[0].id);
       } else {
-        // ถ้าคลาวด์ยังว่างเปล่า (โหลดแอปครั้งแรก) ให้ใช้ defaultData บันทึกขึ้นไป
         setDoc(docRef, { cities: defaultData });
         setCities(defaultData);
         setActiveCityId(defaultData[0].id);
       }
       setIsLoaded(true);
     });
-
-    return () => unsubscribe(); // ล้างการเชื่อมต่อเมื่อปิดโปรแกรม
+    return () => unsubscribe();
   }, []);
 
   const activeCity = cities.find(c => c.id === activeCityId) || cities[0];
 
   useEffect(() => {
-    setCalcTHB('');
-    setCalcIG('');
+    setCalcTHB(''); setCalcIG('');
   }, [activeCityId, activeCity?.igRate]);
 
   // 2. ฟังก์ชันยิงข้อมูลขึ้น Cloud
   const syncToCloud = (newCitiesData) => {
-    setCities(newCitiesData); // โชว์ในจอเราทันทีไม่ต้องรอ
-    setDoc(doc(db, 'serverData', 'mainConfig'), { cities: newCitiesData }, { merge: true }); // ยิงขึ้น Cloud ให้เพื่อนเห็นด้วย
+    setCities(newCitiesData);
+    setDoc(doc(db, 'serverData', 'mainConfig'), { cities: newCitiesData }, { merge: true });
+  };
+
+  // --- 🆕 ฟังก์ชันดึงข้อมูลเก่าจาก Local Storage ---
+  const handleMigrateOldData = () => {
+    const saved = localStorage.getItem('craftingProData'); // ดึงข้อมูลที่เคยเซฟไว้ในเครื่อง
+    if (saved) {
+      const localData = JSON.parse(saved);
+      if (window.confirm('พบข้อมูลเก่าในเครื่องนี้! ต้องการอัปโหลดขึ้น Cloud เพื่อทับข้อมูลปัจจุบันและแชร์กับทุกคนไหม?')) {
+        syncToCloud(localData);
+        alert('✅ ดึงข้อมูลเก่าขึ้น Cloud สำเร็จแล้ว!');
+      }
+    } else {
+      alert('❌ ไม่พบข้อมูลเก่าที่บันทึกไว้ในเครื่องนี้');
+    }
   };
 
   const updateCity = (updater) => {
@@ -128,7 +127,7 @@ export default function UltimateCraftingDashboard() {
 
   const handleDeleteCity = (id, e) => {
     e.stopPropagation();
-    if (window.confirm('ยืนยันการลบเซิร์ฟเวอร์นี้สำหรับทุกคน?')) {
+    if (window.confirm('ยืนยันการลบ?')) {
       const newCities = cities.filter(c => c.id !== id);
       syncToCloud(newCities);
       if (activeCityId === id && newCities.length > 0) setActiveCityId(newCities[0].id);
@@ -158,28 +157,25 @@ export default function UltimateCraftingDashboard() {
   const handleTHBChange = (val) => {
     setCalcTHB(val);
     if (!val || Number(val) <= 0) { setCalcIG(''); return; }
-    const numTHB = Number(val);
-    const numIG = numTHB * (1000000 / activeCity.igRate);
-    setCalcIG(numIG > 0 ? numIG.toFixed(0) : '');
+    const numIG = Number(val) * (1000000 / activeCity.igRate);
+    setCalcIG(numIG.toFixed(0));
   };
 
   const handleIGChange = (val) => {
     setCalcIG(val);
     if (!val || Number(val) <= 0) { setCalcTHB(''); return; }
-    const numIG = Number(val);
-    const numTHB = (numIG / 1000000) * activeCity.igRate;
-    setCalcTHB(numTHB > 0 ? numTHB.toFixed(2) : '');
+    const numTHB = (Number(val) / 1000000) * activeCity.igRate;
+    setCalcTHB(numTHB.toFixed(2));
   };
 
   const getUnitMultiplier = (unit) => {
     if (!activeCity) return 0;
     const thbPerIg = activeCity.igRate / 1000000;
-    const thbPerCash = thbPerIg; 
     switch(unit) {
       case 'k_ig': return thbPerIg * 1000;
       case 'ig': return thbPerIg;
-      case 'cash': return thbPerCash;
-      case 'bm': return thbPerCash * activeCity.bmToCash;
+      case 'cash': return thbPerIg;
+      case 'bm': return thbPerIg * activeCity.bmToCash;
       case 'afkc': return thbPerIg * 1800;
       case 'thb': return 1;
       default: return 0;
@@ -194,10 +190,7 @@ export default function UltimateCraftingDashboard() {
     }, 0);
   };
 
-  // หน้าจอตอนกำลังโหลดเชื่อมต่อฐานข้อมูล
-  if (!isLoaded) {
-    return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#0b0f19', color: '#fff', fontSize: '20px' }}>กำลังเชื่อมต่อฐานข้อมูล Cloud... ☁️</div>;
-  }
+  if (!isLoaded) return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#0b0f19', color: '#fff' }}>Connecting Cloud... ☁️</div>;
 
   const categories = Array.from(new Set(activeCity.recipes.map(r => r.category)));
 
@@ -205,144 +198,97 @@ export default function UltimateCraftingDashboard() {
     <>
       <style>{globalStyle}</style>
       <div className="dashboard-layout">
-        
-        {/* Sidebar */}
         <div className="sidebar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-            <div style={{ background: 'linear-gradient(135deg, #38bdf8, #818cf8)', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 4px 12px rgba(56,189,248,0.3)', flexShrink: 0 }}>💎</div>
+            <div style={{ background: 'linear-gradient(135deg, #38bdf8, #818cf8)', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>💎</div>
             <div>
               <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#fff' }}>EcoCraft Pro</div>
-              <div style={{ fontSize: '12px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <div style={{ width: '6px', height: '6px', background: '#10b981', borderRadius: '50%', boxShadow: '0 0 6px #10b981' }}></div>
-                Cloud Sync (Real-time)
-              </div>
+              <div style={{ fontSize: '11px', color: '#10b981' }}>● Online Sync</div>
             </div>
           </div>
           
-          <div style={{ fontSize: '13px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', marginTop: '10px', flexShrink: 0 }}>Servers</div>
-          
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
             {cities.map(city => (
               <div key={city.id} className={`sidebar-item ${activeCityId === city.id ? 'active' : ''}`} onClick={() => setActiveCityId(city.id)}>
                 {editingCityId === city.id ? (
-                  <div style={{ display: 'flex', width: '100%', gap: '8px' }}>
-                    <input autoFocus className="pro-input" style={{ padding: '6px' }} value={editCityName} onChange={e => setEditCityName(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveEditCity(city.id)} />
-                    <button className="btn btn-primary" style={{ padding: '6px 10px' }} onClick={(e) => { e.stopPropagation(); saveEditCity(city.id); }}>✓</button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input autoFocus className="pro-input" style={{ padding: '4px' }} value={editCityName} onChange={e => setEditCityName(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveEditCity(city.id)} />
+                    <button className="btn btn-primary" onClick={(e) => { e.stopPropagation(); saveEditCity(city.id); }}>✓</button>
                   </div>
                 ) : (
                   <>
-                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{city.name}</span>
-                    <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                      <button className="btn btn-danger-ghost" style={{ color: '#94a3b8' }} onClick={(e) => startEditCity(city, e)}>✎</button>
-                      {cities.length > 1 && <button className="btn btn-danger-ghost" onClick={(e) => handleDeleteCity(city.id, e)}>✕</button>}
-                    </div>
+                    <span style={{ flex: 1 }}>{city.name}</span>
+                    <button className="btn btn-danger-ghost" onClick={(e) => startEditCity(city, e)}>✎</button>
+                    {cities.length > 1 && <button className="btn btn-danger-ghost" onClick={(e) => handleDeleteCity(city.id, e)}>✕</button>}
                   </>
                 )}
               </div>
             ))}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0, marginTop: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: 'auto' }}>
             <button className="btn btn-success" onClick={handleAddCity}>+ Add Server</button>
-            <div style={{ fontSize: '11px', color: '#64748b', textAlign: 'center', marginTop: '4px' }}>*ข้อมูลบันทึกขึ้นระบบอัตโนมัติ</div>
+            {/* ปุ่มดึงข้อมูลเก่าที่เพิ่มมาให้ */}
+            <button className="btn" style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.2)' }} onClick={handleMigrateOldData}>💾 ดึงข้อมูลเก่าจากเครื่อง</button>
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="main-content">
           <div className="content-wrapper">
-            
-            <div className="header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-              <div>
-                <h1 className="gradient-text" style={{ margin: '0 0 8px 0', fontSize: '36px', fontWeight: '700' }}>{activeCity?.name}</h1>
-                <p style={{ margin: 0, color: '#94a3b8', fontSize: '15px' }}>Dynamic Economy & Recipe Calculator</p>
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px' }}>
+              <h1 className="gradient-text" style={{ fontSize: '32px', margin: 0 }}>{activeCity?.name}</h1>
               <button className={isRecipeEditMode ? "btn btn-success" : "btn btn-primary"} onClick={() => setIsRecipeEditMode(!isRecipeEditMode)}>
-                {isRecipeEditMode ? '💾 บันทึกและปิดโหมดแก้ไข' : '⚙️ เปิดโหมดปรับแต่งสูตร'}
+                {isRecipeEditMode ? '💾 บันทึกสูตร' : '⚙️ แก้ไขสูตร'}
               </button>
             </div>
 
             <div className="top-stats-grid">
               <div className="glass-panel stat-card">
-                <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>เรทเงินเซิร์ฟเวอร์ (1M IG)</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>฿</span>
-                  <input type="number" className="pro-input" style={{ fontSize: '20px', fontWeight: 'bold', padding: '4px 10px' }} value={activeCity?.igRate} onChange={e => updateCity(c => ({...c, igRate: Number(e.target.value)}))} />
+                <div style={{ color: '#94a3b8', fontSize: '13px' }}>เรทเงิน (1M IG)</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '20px' }}>฿</span>
+                  <input type="number" className="pro-input" value={activeCity?.igRate} onChange={e => updateCity(c => ({...c, igRate: Number(e.target.value)}))} />
                 </div>
               </div>
-
               <div className="glass-panel stat-card">
-                <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>เรทตลาดมืด (1 BM)</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>$</span>
-                  <input type="number" className="pro-input" style={{ fontSize: '20px', fontWeight: 'bold', padding: '4px 10px' }} value={activeCity?.bmToCash} onChange={e => updateCity(c => ({...c, bmToCash: Number(e.target.value)}))} />
-                  <span style={{ color: '#64748b', fontSize: '14px' }}>Cash</span>
+                <div style={{ color: '#94a3b8', fontSize: '13px' }}>เรทตลาดมืด (1 BM)</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '20px' }}>$</span>
+                  <input type="number" className="pro-input" value={activeCity?.bmToCash} onChange={e => updateCity(c => ({...c, bmToCash: Number(e.target.value)}))} />
                 </div>
               </div>
-
-              <div className="glass-panel stat-card" style={{ gridColumn: 'span 1' }}>
-                <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>💱 เครื่องคิดเลขแปลงเงิน</div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>เงินจริง (บาท)</div>
-                    <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid #334155', paddingLeft: '10px' }}>
-                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>฿</span>
-                      <input type="number" className="pro-input" style={{ border: 'none', background: 'transparent', padding: '8px' }} value={calcTHB} onChange={e => handleTHBChange(e.target.value)} placeholder="0.00" />
-                    </div>
-                  </div>
-                  <div style={{ color: '#475569', marginTop: '16px', fontWeight: 'bold' }}>=</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>เงินในเกม (IG)</div>
-                    <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid #334155', paddingRight: '10px' }}>
-                      <input type="number" className="pro-input" style={{ border: 'none', background: 'transparent', padding: '8px', textAlign: 'right' }} value={calcIG} onChange={e => handleIGChange(e.target.value)} placeholder="0" />
-                      <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '12px', marginLeft: '4px' }}>IG</span>
-                    </div>
-                  </div>
+              <div className="glass-panel stat-card">
+                <div style={{ fontSize: '13px', color: '#94a3b8' }}>💱 แปลงเงิน</div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input type="number" className="pro-input" value={calcTHB} onChange={e => handleTHBChange(e.target.value)} placeholder="บาท" />
+                  <span>=</span>
+                  <input type="number" className="pro-input" value={calcIG} onChange={e => handleIGChange(e.target.value)} placeholder="IG" />
                 </div>
               </div>
             </div>
 
             <div className="content-grid">
-              
               <div className="glass-panel">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                  <h3 style={{ margin: 0, fontSize: '18px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>📦 ฐานข้อมูลวัตถุดิบ</h3>
-                  <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => {
-                    const newMat = { id: `m_${Date.now()}`, name: 'ไอเทมใหม่', cost: 0, unit: 'k_ig' };
-                    updateCity(c => ({...c, materials: [...c.materials, newMat]}));
-                  }}>+ เพิ่ม</button>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+                  <h3 style={{ margin: 0 }}>📦 คลังวัตถุดิบ</h3>
+                  <button className="btn btn-primary" style={{ padding: '6px 12px' }} onClick={() => updateCity(c => ({...c, materials: [...c.materials, { id: `m_${Date.now()}`, name: 'ไอเทมใหม่', cost: 0, unit: 'k_ig' }] }))}>+ เพิ่ม</button>
                 </div>
-
                 <div className="table-container">
-                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '400px' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ padding: '12px 8px', borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left', color: '#94a3b8', fontSize: '13px', fontWeight: '500' }}>ชื่อวัตถุดิบ</th>
-                        <th style={{ padding: '12px 8px', borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left', color: '#94a3b8', fontSize: '13px', fontWeight: '500' }}>ราคา</th>
-                        <th style={{ padding: '12px 8px', borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'right', color: '#94a3b8', fontSize: '13px', fontWeight: '500' }}>฿/หน่วย</th>
-                        <th style={{ padding: '12px 8px', borderBottom: '1px solid rgba(255,255,255,0.1)', width: '40px' }}></th>
-                      </tr>
-                    </thead>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
                       {activeCity?.materials.map(mat => (
                         <tr key={mat.id} className="table-row">
+                          <td style={{ padding: '8px' }}><input className="pro-input" value={mat.name} onChange={e => updateCity(c => ({...c, materials: c.materials.map(m => m.id === mat.id ? {...m, name: e.target.value} : m)}))} /></td>
                           <td style={{ padding: '8px' }}>
-                            <input className="pro-input" style={{ minWidth: '100px' }} value={mat.name} onChange={e => updateCity(c => ({...c, materials: c.materials.map(m => m.id === mat.id ? {...m, name: e.target.value} : m)}))} />
-                          </td>
-                          <td style={{ padding: '8px' }}>
-                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                              <input type="number" className="pro-input" style={{ width: '70px', padding: '8px 6px' }} value={mat.cost} onChange={e => updateCity(c => ({...c, materials: c.materials.map(m => m.id === mat.id ? {...m, cost: Number(e.target.value)} : m)}))} />
-                              <select className="pro-input" style={{ width: '80px', padding: '8px 4px' }} value={mat.unit} onChange={e => updateCity(c => ({...c, materials: c.materials.map(m => m.id === mat.id ? {...m, unit: e.target.value} : m)}))}>
-                                <option value="k_ig">k IG</option><option value="ig">IG</option><option value="cash">Cash</option><option value="bm">BM</option><option value="afkc">AFKc</option><option value="thb">฿</option>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <input type="number" className="pro-input" style={{ width: '70px' }} value={mat.cost} onChange={e => updateCity(c => ({...c, materials: c.materials.map(m => m.id === mat.id ? {...m, cost: Number(e.target.value)} : m)}))} />
+                              <select className="pro-input" style={{ width: '80px' }} value={mat.unit} onChange={e => updateCity(c => ({...c, materials: c.materials.map(m => m.id === mat.id ? {...m, unit: e.target.value} : m)}))}>
+                                <option value="k_ig">k IG</option><option value="ig">IG</option><option value="cash">Cash</option><option value="bm">BM</option><option value="thb">฿</option>
                               </select>
                             </div>
                           </td>
-                          <td style={{ padding: '8px', textAlign: 'right', fontWeight: '600', color: '#10b981', fontSize: '14px', whiteSpace: 'nowrap' }}>
-                            {getMaterialThb(mat).toFixed(2)}
-                          </td>
-                          <td style={{ padding: '8px', textAlign: 'center' }}>
-                            <button className="btn btn-danger-ghost" onClick={() => updateCity(c => ({...c, materials: c.materials.filter(m => m.id !== mat.id)}))}>🗑</button>
-                          </td>
+                          <td style={{ textAlign: 'right', color: '#10b981' }}>{getMaterialThb(mat).toFixed(2)}</td>
+                          <td style={{ textAlign: 'center' }}><button className="btn btn-danger-ghost" onClick={() => updateCity(c => ({...c, materials: c.materials.filter(m => m.id !== mat.id)}))}>🗑</button></td>
                         </tr>
                       ))}
                     </tbody>
@@ -353,95 +299,58 @@ export default function UltimateCraftingDashboard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {categories.map(cat => (
                   <div key={cat} className="glass-panel">
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#a855f7', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '12px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      🛠️ {cat}
-                    </div>
-                    
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '16px', color: '#a855f7' }}>🛠️ {cat}</div>
                     {activeCity?.recipes.filter(r => r.category === cat).map(recipe => (
-                      <div key={recipe.id} style={{ padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.02)' }}>
-                        
-                        {!isRecipeEditMode && (
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                            <div style={{ flex: '1 1 min-content' }}>
-                              <div style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '8px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-                                {recipe.name} <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '12px', background: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24' }}>{recipe.chance}% Success</span>
-                              </div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      <div key={recipe.id} style={{ padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', marginBottom: '12px' }}>
+                        {!isRecipeEditMode ? (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <div>
+                              <div style={{ fontWeight: 'bold' }}>{recipe.name} <small style={{ color: '#fbbf24' }}>{recipe.chance}%</small></div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
                                 {recipe.ingredients.map((ing, idx) => {
                                   const mat = activeCity.materials.find(m => m.id === ing.matId);
-                                  return mat ? <span key={idx} className="ingredient-badge">{mat.name} x{ing.qty.toLocaleString()}</span> : null;
+                                  return <span key={idx} className="ingredient-badge">{mat?.name} x{ing.qty}</span>;
                                 })}
                               </div>
                             </div>
-                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#10b981', background: 'rgba(16, 185, 129, 0.1)', padding: '8px 16px', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)', whiteSpace: 'nowrap' }}>
-                              {getRecipeTotal(recipe).toFixed(2)} ฿
-                            </div>
+                            <div style={{ fontSize: '20px', color: '#10b981', fontWeight: 'bold' }}>{getRecipeTotal(recipe).toFixed(2)} ฿</div>
                           </div>
-                        )}
-
-                        {isRecipeEditMode && (
+                        ) : (
                           <div>
-                            <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                              <input className="pro-input" style={{ flex: '1 1 150px' }} value={recipe.name} onChange={e => updateCity(c => ({...c, recipes: c.recipes.map(r => r.id === recipe.id ? {...r, name: e.target.value} : r)}))} placeholder="Recipe Name" />
-                              <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', paddingRight: '12px', border: '1px solid #334155', flex: '0 1 120px' }}>
-                                <input type="number" className="pro-input" style={{ flex: 1, border: 'none', background: 'transparent' }} value={recipe.chance} onChange={e => updateCity(c => ({...c, recipes: c.recipes.map(r => r.id === recipe.id ? {...r, chance: Number(e.target.value)} : r)}))} placeholder="Chance" />
-                                <span style={{ color: '#94a3b8' }}>%</span>
-                              </div>
+                            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                              <input className="pro-input" value={recipe.name} onChange={e => updateCity(c => ({...c, recipes: c.recipes.map(r => r.id === recipe.id ? {...r, name: e.target.value} : r)}))} />
                               <button className="btn btn-danger-ghost" onClick={() => updateCity(c => ({...c, recipes: c.recipes.filter(r => r.id !== recipe.id)}))}>ลบ</button>
                             </div>
-                            
-                            <div style={{ background: 'rgba(15, 23, 42, 0.4)', padding: '12px', borderRadius: '8px', border: '1px dashed #334155' }}>
-                              <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px', fontWeight: '500' }}>Ingredients Setup</div>
-                              {recipe.ingredients.map((ing, idx) => (
-                                <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                                  <select className="pro-input" style={{ flex: '1 1 120px' }} value={ing.matId} onChange={e => updateCity(c => ({...c, recipes: c.recipes.map(r => r.id === recipe.id ? {...r, ingredients: r.ingredients.map((i, iIdx) => iIdx === idx ? {...i, matId: e.target.value} : i)} : r)}))}>
-                                    {activeCity.materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                                  </select>
-                                  <input type="number" className="pro-input" style={{ flex: '0 1 80px' }} value={ing.qty} onChange={e => updateCity(c => ({...c, recipes: c.recipes.map(r => r.id === recipe.id ? {...r, ingredients: r.ingredients.map((i, iIdx) => iIdx === idx ? {...i, qty: Number(e.target.value)} : i)} : r)}))} placeholder="Qty" />
-                                  <button className="btn btn-danger-ghost" onClick={() => updateCity(c => ({...c, recipes: c.recipes.map(r => r.id === recipe.id ? {...r, ingredients: r.ingredients.filter((_, iIdx) => iIdx !== idx)} : r)}))}>✕</button>
-                                </div>
-                              ))}
-                              <button className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '12px', marginTop: '4px' }} onClick={() => updateCity(c => ({...c, recipes: c.recipes.map(r => r.id === recipe.id ? {...r, ingredients: [...r.ingredients, {matId: activeCity.materials[0]?.id, qty: 1}]} : r)}))}>+ เพิ่มวัตถุดิบ</button>
-                            </div>
+                            {recipe.ingredients.map((ing, idx) => (
+                              <div key={idx} style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
+                                <select className="pro-input" value={ing.matId} onChange={e => updateCity(c => ({...c, recipes: c.recipes.map(r => r.id === recipe.id ? {...r, ingredients: r.ingredients.map((i, iIdx) => iIdx === idx ? {...i, matId: e.target.value} : i)} : r)}))}>
+                                  {activeCity.materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                </select>
+                                <input type="number" className="pro-input" style={{ width: '80px' }} value={ing.qty} onChange={e => updateCity(c => ({...c, recipes: c.recipes.map(r => r.id === recipe.id ? {...r, ingredients: r.ingredients.map((i, iIdx) => iIdx === idx ? {...i, qty: Number(e.target.value)} : i)} : r)}))} />
+                              </div>
+                            ))}
+                            <button className="btn btn-primary" style={{ padding: '4px 8px', fontSize: '11px', marginTop: '8px' }} onClick={() => updateCity(c => ({...c, recipes: c.recipes.map(r => r.id === recipe.id ? {...r, ingredients: [...r.ingredients, {matId: activeCity.materials[0].id, qty: 1}]} : r)}))}>+ เพิ่มส่วนผสม</button>
                           </div>
                         )}
-
                       </div>
                     ))}
-                    
-                    {isRecipeEditMode && (
-                      <button className="btn" style={{ width: '100%', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px dashed #475569', padding: '12px' }} onClick={() => {
-                        const newRecipe = { id: `r_${Date.now()}`, name: 'สูตรใหม่', category: cat, chance: 100, ingredients: [] };
-                        updateCity(c => ({...c, recipes: [...c.recipes, newRecipe]}));
-                      }}>+ สร้างสูตรใหม่ในหมวดนี้</button>
-                    )}
+                    {isRecipeEditMode && <button className="btn" style={{ width: '100%', border: '1px dashed #334155' }} onClick={() => updateCity(c => ({...c, recipes: [...c.recipes, { id: `r_${Date.now()}`, name: 'สูตรใหม่', category: cat, chance: 100, ingredients: [] }] }))}>+ เพิ่มสูตร</button>}
                   </div>
                 ))}
-
+                
                 {isRecipeEditMode && (
-                  <div className="glass-panel" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', background: 'rgba(255,255,255,0.02)', padding: '24px' }}>
+                   <div className="glass-panel" style={{ borderStyle: 'dashed', cursor: 'pointer', textAlign: 'center' }}>
                     {!showNewCatInput ? (
-                      <div style={{ width: '100%', textAlign: 'center', cursor: 'pointer' }} onClick={() => setShowNewCatInput(true)}>
-                        <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '16px' }}>+ สร้างหมวดหมู่ใหม่</span>
-                      </div>
+                      <div onClick={() => setShowNewCatInput(true)}>+ สร้างหมวดหมู่ใหม่</div>
                     ) : (
-                      <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '500px' }}>
-                        <input 
-                          autoFocus 
-                          className="pro-input" 
-                          placeholder="ชื่อหมวดหมู่ใหม่ (เช่น ปืน, ยา)..." 
-                          value={newCatName} 
-                          onChange={e => setNewCatName(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && handleAddNewCategory()}
-                        />
-                        <button className="btn btn-success" onClick={handleAddNewCategory}>บันทึก</button>
-                        <button className="btn btn-danger-ghost" onClick={() => { setShowNewCatInput(false); setNewCatName(''); }}>ยกเลิก</button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input autoFocus className="pro-input" placeholder="ชื่อหมวดหมู่..." value={newCatName} onChange={e => setNewCatName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddNewCategory()} />
+                        <button className="btn btn-success" onClick={handleAddNewCategory}>OK</button>
                       </div>
                     )}
-                  </div>
+                   </div>
                 )}
               </div>
-
             </div>
           </div>
         </div>

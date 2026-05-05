@@ -106,6 +106,7 @@ const globalStyle = `
     padding: 16px;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 8px;
   }
   
@@ -160,7 +161,7 @@ const globalStyle = `
 
   .top-stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 24px;
     margin-bottom: 32px;
   }
@@ -225,15 +226,42 @@ export default function UltimateCraftingDashboard() {
   const [editingCityId, setEditingCityId] = useState(null);
   const [editCityName, setEditCityName] = useState('');
   
-  // State ใหม่สำหรับกล่องเพิ่มหมวดหมู่
   const [showNewCatInput, setShowNewCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
+
+  // --- State สำหรับเครื่องคิดเลขแปลงเงิน ---
+  const [calcTHB, setCalcTHB] = useState('');
+  const [calcIG, setCalcIG] = useState('');
+
+  const activeCity = cities.find(c => c.id === activeCityId) || cities[0];
+
+  // รีเซ็ตเครื่องคิดเลขเมื่อเปลี่ยนเมืองหรือมีการแก้เรทเงิน (ป้องกันตัวเลขค้างผิดเรท)
+  useEffect(() => {
+    setCalcTHB('');
+    setCalcIG('');
+  }, [activeCityId, activeCity?.igRate]);
 
   useEffect(() => {
     localStorage.setItem('craftingProData', JSON.stringify(cities));
   }, [cities]);
 
-  const activeCity = cities.find(c => c.id === activeCityId) || cities[0];
+  // ฟังก์ชันคำนวณเงินบาท -> IG
+  const handleTHBChange = (val) => {
+    setCalcTHB(val);
+    if (!val || Number(val) <= 0) { setCalcIG(''); return; }
+    const numTHB = Number(val);
+    const numIG = numTHB * (1000000 / activeCity.igRate);
+    setCalcIG(numIG > 0 ? numIG.toFixed(0) : '');
+  };
+
+  // ฟังก์ชันคำนวณ IG -> เงินบาท
+  const handleIGChange = (val) => {
+    setCalcIG(val);
+    if (!val || Number(val) <= 0) { setCalcTHB(''); return; }
+    const numIG = Number(val);
+    const numTHB = (numIG / 1000000) * activeCity.igRate;
+    setCalcTHB(numTHB > 0 ? numTHB.toFixed(2) : '');
+  };
 
   const handleAddCity = () => {
     const newCity = { ...activeCity, id: Date.now(), name: 'New Server' };
@@ -289,7 +317,6 @@ export default function UltimateCraftingDashboard() {
 
   const categories = Array.from(new Set(activeCity.recipes.map(r => r.category)));
 
-  // ฟังก์ชันเพิ่มหมวดหมู่ใหม่
   const handleAddNewCategory = () => {
     if(newCatName.trim()) {
       updateCity(c => ({...c, recipes: [...c.recipes, { id: `r_${Date.now()}`, name: 'สูตรใหม่', category: newCatName.trim(), chance: 100, ingredients: [] }]}));
@@ -309,7 +336,7 @@ export default function UltimateCraftingDashboard() {
             <div style={{ background: 'linear-gradient(135deg, #38bdf8, #818cf8)', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 4px 12px rgba(56,189,248,0.3)', flexShrink: 0 }}>💎</div>
             <div>
               <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#fff' }}>EcoCraft Pro</div>
-              <div style={{ fontSize: '12px', color: '#64748b' }}>Dashboard v3.2</div>
+              <div style={{ fontSize: '12px', color: '#64748b' }}>Dashboard v3.3</div>
             </div>
           </div>
           
@@ -356,21 +383,49 @@ export default function UltimateCraftingDashboard() {
 
             {/* Economy Rates (Top Row) */}
             <div className="top-stats-grid">
+              {/* แผง 1: เรทเงิน */}
               <div className="glass-panel stat-card">
-                <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500' }}>เรทเงินเซิร์ฟเวอร์ (1M IG)</div>
+                <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>เรทเงินเซิร์ฟเวอร์ (1M IG)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>฿</span>
                   <input type="number" className="pro-input" style={{ fontSize: '20px', fontWeight: 'bold', padding: '4px 10px' }} value={activeCity.igRate} onChange={e => updateCity(c => ({...c, igRate: Number(e.target.value)}))} />
                 </div>
               </div>
+
+              {/* แผง 2: ตลาดมืด */}
               <div className="glass-panel stat-card">
-                <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500' }}>เรทตลาดมืด (1 BM)</div>
+                <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>เรทตลาดมืด (1 BM)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>$</span>
                   <input type="number" className="pro-input" style={{ fontSize: '20px', fontWeight: 'bold', padding: '4px 10px' }} value={activeCity.bmToCash} onChange={e => updateCity(c => ({...c, bmToCash: Number(e.target.value)}))} />
                   <span style={{ color: '#64748b', fontSize: '14px' }}>Cash</span>
                 </div>
               </div>
+
+              {/* แผง 3: เครื่องคิดเลขแปลงเงิน (ใหม่!) */}
+              <div className="glass-panel stat-card" style={{ gridColumn: 'span 1' }}>
+                <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  💱 เครื่องคิดเลขแปลงเงิน
+                </div>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>เงินจริง (บาท)</div>
+                    <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid #334155', paddingLeft: '10px' }}>
+                      <span style={{ color: '#10b981', fontWeight: 'bold' }}>฿</span>
+                      <input type="number" className="pro-input" style={{ border: 'none', background: 'transparent', padding: '8px' }} value={calcTHB} onChange={e => handleTHBChange(e.target.value)} placeholder="0.00" />
+                    </div>
+                  </div>
+                  <div style={{ color: '#475569', marginTop: '16px', fontWeight: 'bold' }}>=</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>เงินในเกม (IG)</div>
+                    <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid #334155', paddingRight: '10px' }}>
+                      <input type="number" className="pro-input" style={{ border: 'none', background: 'transparent', padding: '8px', textAlign: 'right' }} value={calcIG} onChange={e => handleIGChange(e.target.value)} placeholder="0" />
+                      <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '12px', marginLeft: '4px' }}>IG</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             {/* Main Layout Grid */}
@@ -494,7 +549,6 @@ export default function UltimateCraftingDashboard() {
                   </div>
                 ))}
 
-                {/* เปลี่ยนจาก prompt() เป็น Inline Input */}
                 {isRecipeEditMode && (
                   <div className="glass-panel" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', background: 'rgba(255,255,255,0.02)', padding: '24px' }}>
                     {!showNewCatInput ? (

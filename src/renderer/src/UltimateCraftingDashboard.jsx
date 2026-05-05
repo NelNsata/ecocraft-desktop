@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 const globalStyle = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
   
-  /* ทะลวงกรอบของ Vite ที่จำกัดความกว้างไว้ */
   html, body, #root { 
     max-width: 100% !important; 
     width: 100% !important; 
@@ -16,13 +15,11 @@ const globalStyle = `
   * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
   body { background: #0b0f19; background-image: radial-gradient(circle at top right, #1e293b 0%, #0b0f19 50%); color: #e2e8f0; min-height: 100vh; overflow-x: hidden; }
   
-  /* Scrollbar ปรับแต่ง */
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-  /* คลาส UI พื้นฐาน */
   .glass-panel { 
     background: rgba(15, 23, 42, 0.6); 
     backdrop-filter: blur(16px); 
@@ -129,7 +126,6 @@ const globalStyle = `
     overflow-x: auto;
   }
 
-  /* --- Responsive Layout Rules --- */
   .dashboard-layout {
     display: flex;
     width: 100%;
@@ -228,6 +224,10 @@ export default function UltimateCraftingDashboard() {
   const [isRecipeEditMode, setIsRecipeEditMode] = useState(false);
   const [editingCityId, setEditingCityId] = useState(null);
   const [editCityName, setEditCityName] = useState('');
+  
+  // State ใหม่สำหรับกล่องเพิ่มหมวดหมู่
+  const [showNewCatInput, setShowNewCatInput] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
 
   useEffect(() => {
     localStorage.setItem('craftingProData', JSON.stringify(cities));
@@ -289,6 +289,15 @@ export default function UltimateCraftingDashboard() {
 
   const categories = Array.from(new Set(activeCity.recipes.map(r => r.category)));
 
+  // ฟังก์ชันเพิ่มหมวดหมู่ใหม่
+  const handleAddNewCategory = () => {
+    if(newCatName.trim()) {
+      updateCity(c => ({...c, recipes: [...c.recipes, { id: `r_${Date.now()}`, name: 'สูตรใหม่', category: newCatName.trim(), chance: 100, ingredients: [] }]}));
+      setNewCatName('');
+      setShowNewCatInput(false);
+    }
+  };
+
   return (
     <>
       <style>{globalStyle}</style>
@@ -300,7 +309,7 @@ export default function UltimateCraftingDashboard() {
             <div style={{ background: 'linear-gradient(135deg, #38bdf8, #818cf8)', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 4px 12px rgba(56,189,248,0.3)', flexShrink: 0 }}>💎</div>
             <div>
               <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#fff' }}>EcoCraft Pro</div>
-              <div style={{ fontSize: '12px', color: '#64748b' }}>Dashboard v3.2 (Full-Width)</div>
+              <div style={{ fontSize: '12px', color: '#64748b' }}>Dashboard v3.2</div>
             </div>
           </div>
           
@@ -364,7 +373,7 @@ export default function UltimateCraftingDashboard() {
               </div>
             </div>
 
-            {/* Main Layout Grid (Responsive) */}
+            {/* Main Layout Grid */}
             <div className="content-grid">
               
               {/* Left Column: Materials */}
@@ -485,12 +494,27 @@ export default function UltimateCraftingDashboard() {
                   </div>
                 ))}
 
+                {/* เปลี่ยนจาก prompt() เป็น Inline Input */}
                 {isRecipeEditMode && (
-                  <div className="glass-panel" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }} onClick={() => {
-                    const catName = prompt('ระบุชื่อหมวดหมู่อาวุธ/ไอเทมใหม่:');
-                    if(catName) updateCity(c => ({...c, recipes: [...c.recipes, { id: `r_${Date.now()}`, name: 'สูตรใหม่', category: catName, chance: 100, ingredients: [] }]}));
-                  }}>
-                    <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '16px' }}>+ สร้างหมวดหมู่ใหม่</span>
+                  <div className="glass-panel" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', background: 'rgba(255,255,255,0.02)', padding: '24px' }}>
+                    {!showNewCatInput ? (
+                      <div style={{ width: '100%', textAlign: 'center', cursor: 'pointer' }} onClick={() => setShowNewCatInput(true)}>
+                        <span style={{ color: '#38bdf8', fontWeight: 'bold', fontSize: '16px' }}>+ สร้างหมวดหมู่ใหม่</span>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '500px' }}>
+                        <input 
+                          autoFocus 
+                          className="pro-input" 
+                          placeholder="ชื่อหมวดหมู่ใหม่ (เช่น ปืน, ยา)..." 
+                          value={newCatName} 
+                          onChange={e => setNewCatName(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleAddNewCategory()}
+                        />
+                        <button className="btn btn-success" onClick={handleAddNewCategory}>บันทึก</button>
+                        <button className="btn btn-danger-ghost" onClick={() => { setShowNewCatInput(false); setNewCatName(''); }}>ยกเลิก</button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

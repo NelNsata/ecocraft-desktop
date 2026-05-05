@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // --- Global CSS ---
 const globalStyle = `
@@ -179,7 +179,7 @@ const globalStyle = `
 
   @media (max-width: 768px) {
     .dashboard-layout { flex-direction: column; height: auto; min-height: 100vh; }
-    .sidebar { width: 100%; height: auto; max-height: 350px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .sidebar { width: 100%; height: auto; max-height: 450px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); }
     .main-content { padding: 20px; }
     .header-actions { flex-direction: column; align-items: flex-start; gap: 16px; }
     .header-actions button { width: 100%; }
@@ -229,13 +229,13 @@ export default function UltimateCraftingDashboard() {
   const [showNewCatInput, setShowNewCatInput] = useState(false);
   const [newCatName, setNewCatName] = useState('');
 
-  // --- State สำหรับเครื่องคิดเลขแปลงเงิน ---
   const [calcTHB, setCalcTHB] = useState('');
   const [calcIG, setCalcIG] = useState('');
 
+  const fileInputRef = useRef(null); // ใช้สำหรับเปิดหน้าต่างเลือกไฟล์
+
   const activeCity = cities.find(c => c.id === activeCityId) || cities[0];
 
-  // รีเซ็ตเครื่องคิดเลขเมื่อเปลี่ยนเมืองหรือมีการแก้เรทเงิน (ป้องกันตัวเลขค้างผิดเรท)
   useEffect(() => {
     setCalcTHB('');
     setCalcIG('');
@@ -245,7 +245,45 @@ export default function UltimateCraftingDashboard() {
     localStorage.setItem('craftingProData', JSON.stringify(cities));
   }, [cities]);
 
-  // ฟังก์ชันคำนวณเงินบาท -> IG
+  // --- ฟังก์ชัน ส่งออก / นำเข้า ข้อมูล ---
+  const handleExportData = () => {
+    const dataString = JSON.stringify(cities, null, 2);
+    const blob = new Blob([dataString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    // ตั้งชื่อไฟล์ใส่วันที่ให้ด้วย จะได้ไม่งง
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.download = `EcoCraft_Save_${dateStr}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleImportData = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+        // ตรวจสอบเบื้องต้นว่าเป็นข้อมูลแบบ Array ของเมืองหรือไม่
+        if (Array.isArray(importedData) && importedData.length > 0 && importedData[0].materials) {
+          setCities(importedData);
+          setActiveCityId(importedData[0].id);
+          alert('✅ นำเข้าข้อมูลสำเร็จแล้ว!');
+        } else {
+          alert('❌ รูปแบบไฟล์ไม่ถูกต้อง กรุณาใช้ไฟล์ที่ส่งออกจากโปรแกรมนี้เท่านั้น');
+        }
+      } catch (err) {
+        alert('❌ เกิดข้อผิดพลาดในการอ่านไฟล์');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = null; // รีเซ็ต input เพื่อให้เลือกไฟล์เดิมซ้ำได้ถ้าต้องการ
+  };
+
   const handleTHBChange = (val) => {
     setCalcTHB(val);
     if (!val || Number(val) <= 0) { setCalcIG(''); return; }
@@ -254,7 +292,6 @@ export default function UltimateCraftingDashboard() {
     setCalcIG(numIG > 0 ? numIG.toFixed(0) : '');
   };
 
-  // ฟังก์ชันคำนวณ IG -> เงินบาท
   const handleIGChange = (val) => {
     setCalcIG(val);
     if (!val || Number(val) <= 0) { setCalcTHB(''); return; }
@@ -336,7 +373,7 @@ export default function UltimateCraftingDashboard() {
             <div style={{ background: 'linear-gradient(135deg, #38bdf8, #818cf8)', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 4px 12px rgba(56,189,248,0.3)', flexShrink: 0 }}>💎</div>
             <div>
               <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#fff' }}>EcoCraft Pro</div>
-              <div style={{ fontSize: '12px', color: '#64748b' }}>Dashboard v3.3</div>
+              <div style={{ fontSize: '12px', color: '#64748b' }}>Dashboard v3.4</div>
             </div>
           </div>
           
@@ -363,7 +400,16 @@ export default function UltimateCraftingDashboard() {
             ))}
           </div>
 
-          <button className="btn btn-success" style={{ flexShrink: 0 }} onClick={handleAddCity}>+ Add Server</button>
+          {/* ส่วนปุ่มจัดการข้อมูลที่เพิ่มใหม่ */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0, marginTop: 'auto' }}>
+            <button className="btn btn-success" onClick={handleAddCity}>+ Add Server</button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="btn" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)' }} onClick={handleExportData}>📤 ส่งออก</button>
+              <button className="btn" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => fileInputRef.current.click()}>📥 นำเข้า</button>
+              {/* Input ซ่อนไว้สำหรับเลือกไฟล์ */}
+              <input type="file" accept=".json" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImportData} />
+            </div>
+          </div>
         </div>
 
         {/* Main Content */}
@@ -402,7 +448,7 @@ export default function UltimateCraftingDashboard() {
                 </div>
               </div>
 
-              {/* แผง 3: เครื่องคิดเลขแปลงเงิน (ใหม่!) */}
+              {/* แผง 3: เครื่องคิดเลขแปลงเงิน */}
               <div className="glass-panel stat-card" style={{ gridColumn: 'span 1' }}>
                 <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   💱 เครื่องคิดเลขแปลงเงิน
@@ -425,7 +471,6 @@ export default function UltimateCraftingDashboard() {
                   </div>
                 </div>
               </div>
-
             </div>
 
             {/* Main Layout Grid */}

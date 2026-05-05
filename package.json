@@ -21,7 +21,8 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
-    "electron-updater": "^6.8.3"
+    "electron-updater": "^6.8.3",
+    "firebase": "^12.12.1"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config": "^2.1.0",
@@ -42,7 +43,9 @@
   "build": {
     "appId": "com.ecocraft.pro",
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     },
     "publish": [
       {

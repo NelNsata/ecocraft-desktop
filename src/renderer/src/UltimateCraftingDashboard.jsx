@@ -1,227 +1,74 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db } from './firebase'; // นำเข้าฐานข้อมูลที่เราสร้างไว้
 
 // --- Global CSS ---
 const globalStyle = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-  
-  html, body, #root { 
-    max-width: 100% !important; 
-    width: 100% !important; 
-    margin: 0 !important; 
-    padding: 0 !important; 
-    text-align: left !important; 
-  }
-
+  html, body, #root { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important; text-align: left !important; }
   * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
   body { background: #0b0f19; background-image: radial-gradient(circle at top right, #1e293b 0%, #0b0f19 50%); color: #e2e8f0; min-height: 100vh; overflow-x: hidden; }
-  
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: #475569; }
-
-  .glass-panel { 
-    background: rgba(15, 23, 42, 0.6); 
-    backdrop-filter: blur(16px); 
-    -webkit-backdrop-filter: blur(16px); 
-    border: 1px solid rgba(255, 255, 255, 0.05); 
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); 
-    border-radius: 16px; 
-    padding: 24px;
-  }
-  
-  .pro-input { 
-    background: rgba(0, 0, 0, 0.25); 
-    border: 1px solid #334155; 
-    color: #f8fafc; 
-    padding: 10px 14px; 
-    border-radius: 8px; 
-    transition: all 0.2s ease; 
-    outline: none; 
-    width: 100%; 
-    font-size: 14px;
-  }
+  .glass-panel { background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); border-radius: 16px; padding: 24px; }
+  .pro-input { background: rgba(0, 0, 0, 0.25); border: 1px solid #334155; color: #f8fafc; padding: 10px 14px; border-radius: 8px; transition: all 0.2s ease; outline: none; width: 100%; font-size: 14px; }
   .pro-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); background: rgba(0,0,0,0.4); }
-  
-  .btn { 
-    padding: 10px 16px; 
-    border-radius: 8px; 
-    font-weight: 600; 
-    cursor: pointer; 
-    transition: all 0.2s ease; 
-    border: none; 
-    display: inline-flex; 
-    align-items: center; 
-    justify-content: center; 
-    gap: 8px; 
-    font-size: 14px;
-  }
+  .btn { padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; }
   .btn:active { transform: scale(0.97); }
-  
   .btn-primary { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); }
   .btn-primary:hover { box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4); filter: brightness(1.1); }
-  
   .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: white; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); }
   .btn-success:hover { box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4); filter: brightness(1.1); }
-  
   .btn-danger-ghost { background: transparent; color: #ef4444; padding: 6px 10px; }
   .btn-danger-ghost:hover { background: rgba(239, 68, 68, 0.15); border-radius: 6px;}
-  
-  .sidebar-item { 
-    padding: 12px 16px; 
-    border-radius: 10px; 
-    cursor: pointer; 
-    transition: all 0.2s; 
-    margin-bottom: 8px; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    border: 1px solid transparent; 
-    color: #94a3b8;
-  }
+  .sidebar-item { padding: 12px 16px; border-radius: 10px; cursor: pointer; transition: all 0.2s; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; color: #94a3b8; }
   .sidebar-item:hover { background: rgba(255,255,255,0.03); color: #f8fafc; }
-  .sidebar-item.active { 
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent); 
-    border-left: 3px solid #3b82f6; 
-    border-right: 1px solid rgba(255,255,255,0.05); 
-    border-top: 1px solid rgba(255,255,255,0.05); 
-    border-bottom: 1px solid rgba(255,255,255,0.05); 
-    color: #fff; 
-    font-weight: 600; 
-  }
-  
+  .sidebar-item.active { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), transparent); border-left: 3px solid #3b82f6; border-right: 1px solid rgba(255,255,255,0.05); border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); color: #fff; font-weight: 600; }
   .table-row { border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.2s; }
   .table-row:hover { background: rgba(255,255,255,0.02); }
-  
-  .gradient-text { 
-    background: linear-gradient(135deg, #38bdf8, #818cf8); 
-    -webkit-background-clip: text; 
-    -webkit-text-fill-color: transparent; 
-  }
-  
-  .stat-card {
-    background: rgba(0,0,0,0.2);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 12px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 8px;
-  }
-  
-  .ingredient-badge {
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    color: #93c5fd;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 12px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .table-container {
-    width: 100%;
-    overflow-x: auto;
-  }
-
-  .dashboard-layout {
-    display: flex;
-    width: 100%;
-    height: 100vh;
-    overflow: hidden;
-  }
-
-  .sidebar {
-    width: 280px;
-    flex-shrink: 0;
-    background: rgba(15, 23, 42, 0.8);
-    border-right: 1px solid rgba(255,255,255,0.05);
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    backdrop-filter: blur(10px);
-    overflow-y: auto;
-    transition: all 0.3s ease;
-  }
-
-  .main-content {
-    flex: 1;
-    padding: 32px 48px;
-    overflow-y: auto;
-  }
-
-  .content-wrapper {
-    width: 100%;
-    max-width: 100%; 
-  }
-
-  .top-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
-    margin-bottom: 32px;
-  }
-
-  .content-grid {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr; 
-    gap: 32px;
-    align-items: flex-start;
-  }
-
-  @media (max-width: 1200px) {
-    .content-grid { grid-template-columns: 1fr; }
-  }
-
-  @media (max-width: 768px) {
-    .dashboard-layout { flex-direction: column; height: auto; min-height: 100vh; }
-    .sidebar { width: 100%; height: auto; max-height: 450px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); }
-    .main-content { padding: 20px; }
-    .header-actions { flex-direction: column; align-items: flex-start; gap: 16px; }
-    .header-actions button { width: 100%; }
-  }
+  .gradient-text { background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .stat-card { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+  .ingredient-badge { background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 4px 10px; border-radius: 20px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+  .table-container { width: 100%; overflow-x: auto; }
+  .dashboard-layout { display: flex; width: 100%; height: 100vh; overflow: hidden; }
+  .sidebar { width: 280px; flex-shrink: 0; background: rgba(15, 23, 42, 0.8); border-right: 1px solid rgba(255,255,255,0.05); padding: 24px; display: flex; flex-direction: column; gap: 16px; backdrop-filter: blur(10px); overflow-y: auto; transition: all 0.3s ease; }
+  .main-content { flex: 1; padding: 32px 48px; overflow-y: auto; }
+  .content-wrapper { width: 100%; max-width: 100%; }
+  .top-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 32px; }
+  .content-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 32px; align-items: flex-start; }
+  @media (max-width: 1200px) { .content-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 768px) { .dashboard-layout { flex-direction: column; height: auto; min-height: 100vh; } .sidebar { width: 100%; height: auto; max-height: 450px; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.05); } .main-content { padding: 20px; } .header-actions { flex-direction: column; align-items: flex-start; gap: 16px; } .header-actions button { width: 100%; } }
 `;
 
-export default function UltimateCraftingDashboard() {
-  const [cities, setCities] = useState(() => {
-    const saved = localStorage.getItem('craftingProData');
-    if (saved) return JSON.parse(saved);
-    
-    return [{
-      id: 1,
-      name: 'Freedom Community',
-      igRate: 200,    
-      bmToCash: 10,   
-      materials: [
-        { id: 'm1', name: 'ปูน 1 ถุง', cost: 5, unit: 'k_ig' },
-        { id: 'm2', name: 'ไข่มุกทะเล', cost: 6, unit: 'k_ig' },
-        { id: 'm3', name: 'Event Token', cost: 50, unit: 'k_ig' },
-        { id: 'm4', name: 'Weapon Box', cost: 35, unit: 'k_ig' },
-        { id: 'm5', name: 'ผลึกทะเล', cost: 32, unit: 'thb' },
-        { id: 'm6', name: 'Shark Token (1ชิ้น)', cost: 0.01, unit: 'thb' },
-        { id: 'm_cash', name: 'เงิน Cash', cost: 1, unit: 'cash' },
-        { id: 'm_bm', name: 'Black Money', cost: 1, unit: 'bm' },
-      ],
-      recipes: [
-        { id: 'r1', name: 'Blueprint (วิธี I)', category: 'Pool Cue', chance: 50, ingredients: [{ matId: 'm1', qty: 2 }, { matId: 'm3', qty: 1 }, { matId: 'm_cash', qty: 250000 }] },
-        { id: 'r2', name: 'Blueprint (วิธี II)', category: 'Pool Cue', chance: 100, ingredients: [{ matId: 'm1', qty: 5 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 500000 }] },
-        { id: 'r3', name: 'อัปเกรดขั้น I', category: 'Pool Cue', chance: 70, ingredients: [{ matId: 'm5', qty: 1 }, { matId: 'm4', qty: 4 }, { matId: 'm6', qty: 100 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 100000 }] },
-        { id: 'r4', name: 'อัปเกรดขั้น II', category: 'Pool Cue', chance: 50, ingredients: [{ matId: 'm5', qty: 2 }, { matId: 'm4', qty: 8 }, { matId: 'm6', qty: 100 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 200000 }] },
-        { id: 'r5', name: 'อัปเกรดขั้น III', category: 'Pool Cue', chance: 30, ingredients: [{ matId: 'm5', qty: 3 }, { matId: 'm4', qty: 12 }, { matId: 'm6', qty: 300 }, { matId: 'm3', qty: 4 }, { matId: 'm_cash', qty: 300000 }] },
-        { id: 'rk1', name: 'สร้าง Knife', category: 'Knife', chance: 100, ingredients: [{ matId: 'm5', qty: 1 }, { matId: 'm4', qty: 5 }, { matId: 'm6', qty: 200 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 50000 }] },
-        { id: 'rk2', name: 'อัปเกรดขั้น I', category: 'Knife', chance: 70, ingredients: [{ matId: 'm5', qty: 1 }, { matId: 'm4', qty: 5 }, { matId: 'm6', qty: 100 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 100000 }] },
-        { id: 'rk3', name: 'อัปเกรดขั้น II', category: 'Knife', chance: 50, ingredients: [{ matId: 'm5', qty: 2 }, { matId: 'm4', qty: 10 }, { matId: 'm6', qty: 200 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 300000 }] },
-        { id: 'rk4', name: 'อัปเกรดขั้น III', category: 'Knife', chance: 30, ingredients: [{ matId: 'm5', qty: 3 }, { matId: 'm4', qty: 20 }, { matId: 'm6', qty: 500 }, { matId: 'm3', qty: 4 }, { matId: 'm_cash', qty: 500000 }] },
-        { id: 'ro1', name: 'คราฟต์ผลึกทะเล', category: 'วัตถุดิบอื่นๆ', chance: 50, ingredients: [{ matId: 'm2', qty: 3 }, { matId: 'm1', qty: 10 }, { matId: 'm6', qty: 25 }, { matId: 'm_bm', qty: 2000 }] },
-      ]
-    }];
-  });
+// ฐานข้อมูลเริ่มต้น (ใช้ตอนเปิดแอปครั้งแรกสุด)
+const defaultData = [{
+  id: 1, name: 'Freedom Community', igRate: 200, bmToCash: 10,   
+  materials: [
+    { id: 'm1', name: 'ปูน 1 ถุง', cost: 5, unit: 'k_ig' },
+    { id: 'm2', name: 'ไข่มุกทะเล', cost: 6, unit: 'k_ig' },
+    { id: 'm3', name: 'Event Token', cost: 50, unit: 'k_ig' },
+    { id: 'm4', name: 'Weapon Box', cost: 35, unit: 'k_ig' },
+    { id: 'm5', name: 'ผลึกทะเล', cost: 32, unit: 'thb' },
+    { id: 'm6', name: 'Shark Token (1ชิ้น)', cost: 0.01, unit: 'thb' },
+    { id: 'm_cash', name: 'เงิน Cash', cost: 1, unit: 'cash' },
+    { id: 'm_bm', name: 'Black Money', cost: 1, unit: 'bm' },
+  ],
+  recipes: [
+    { id: 'r1', name: 'Blueprint (วิธี I)', category: 'Pool Cue', chance: 50, ingredients: [{ matId: 'm1', qty: 2 }, { matId: 'm3', qty: 1 }, { matId: 'm_cash', qty: 250000 }] },
+    { id: 'r2', name: 'Blueprint (วิธี II)', category: 'Pool Cue', chance: 100, ingredients: [{ matId: 'm1', qty: 5 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 500000 }] },
+    { id: 'r3', name: 'อัปเกรดขั้น I', category: 'Pool Cue', chance: 70, ingredients: [{ matId: 'm5', qty: 1 }, { matId: 'm4', qty: 4 }, { matId: 'm6', qty: 100 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 100000 }] },
+    { id: 'rk1', name: 'สร้าง Knife', category: 'Knife', chance: 100, ingredients: [{ matId: 'm5', qty: 1 }, { matId: 'm4', qty: 5 }, { matId: 'm6', qty: 200 }, { matId: 'm3', qty: 2 }, { matId: 'm_cash', qty: 50000 }] },
+    { id: 'ro1', name: 'คราฟต์ผลึกทะเล', category: 'วัตถุดิบอื่นๆ', chance: 50, ingredients: [{ matId: 'm2', qty: 3 }, { matId: 'm1', qty: 10 }, { matId: 'm6', qty: 25 }, { matId: 'm_bm', qty: 2000 }] },
+  ]
+}];
 
-  const [activeCityId, setActiveCityId] = useState(cities[0]?.id || null);
+export default function UltimateCraftingDashboard() {
+  const [cities, setCities] = useState([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [activeCityId, setActiveCityId] = useState(null);
+  
   const [isRecipeEditMode, setIsRecipeEditMode] = useState(false);
   const [editingCityId, setEditingCityId] = useState(null);
   const [editCityName, setEditCityName] = useState('');
@@ -232,7 +79,28 @@ export default function UltimateCraftingDashboard() {
   const [calcTHB, setCalcTHB] = useState('');
   const [calcIG, setCalcIG] = useState('');
 
-  const fileInputRef = useRef(null); // ใช้สำหรับเปิดหน้าต่างเลือกไฟล์
+  // 1. ดึงและฟังการอัปเดตข้อมูลแบบ Real-time จาก Firebase
+  useEffect(() => {
+    // กำหนดพิกัดข้อมูลบน Cloud (คอลเล็กชัน: serverData, เอกสาร: mainConfig)
+    const docRef = doc(db, 'serverData', 'mainConfig');
+    
+    // onSnapshot จะทำงานทันทีที่โหลดเสร็จ และทำงานอีกครั้งทุกครั้งที่มีคนแก้ข้อมูล
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data().cities;
+        setCities(data);
+        if (!activeCityId && data.length > 0) setActiveCityId(data[0].id);
+      } else {
+        // ถ้าคลาวด์ยังว่างเปล่า (โหลดแอปครั้งแรก) ให้ใช้ defaultData บันทึกขึ้นไป
+        setDoc(docRef, { cities: defaultData });
+        setCities(defaultData);
+        setActiveCityId(defaultData[0].id);
+      }
+      setIsLoaded(true);
+    });
+
+    return () => unsubscribe(); // ล้างการเชื่อมต่อเมื่อปิดโปรแกรม
+  }, []);
 
   const activeCity = cities.find(c => c.id === activeCityId) || cities[0];
 
@@ -241,47 +109,50 @@ export default function UltimateCraftingDashboard() {
     setCalcIG('');
   }, [activeCityId, activeCity?.igRate]);
 
-  useEffect(() => {
-    localStorage.setItem('craftingProData', JSON.stringify(cities));
-  }, [cities]);
-
-  // --- ฟังก์ชัน ส่งออก / นำเข้า ข้อมูล ---
-  const handleExportData = () => {
-    const dataString = JSON.stringify(cities, null, 2);
-    const blob = new Blob([dataString], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    // ตั้งชื่อไฟล์ใส่วันที่ให้ด้วย จะได้ไม่งง
-    const dateStr = new Date().toISOString().slice(0, 10);
-    link.download = `EcoCraft_Save_${dateStr}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // 2. ฟังก์ชันยิงข้อมูลขึ้น Cloud
+  const syncToCloud = (newCitiesData) => {
+    setCities(newCitiesData); // โชว์ในจอเราทันทีไม่ต้องรอ
+    setDoc(doc(db, 'serverData', 'mainConfig'), { cities: newCitiesData }, { merge: true }); // ยิงขึ้น Cloud ให้เพื่อนเห็นด้วย
   };
 
-  const handleImportData = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const updateCity = (updater) => {
+    const newCities = cities.map(c => c.id === activeCityId ? updater(c) : c);
+    syncToCloud(newCities);
+  };
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const importedData = JSON.parse(e.target.result);
-        // ตรวจสอบเบื้องต้นว่าเป็นข้อมูลแบบ Array ของเมืองหรือไม่
-        if (Array.isArray(importedData) && importedData.length > 0 && importedData[0].materials) {
-          setCities(importedData);
-          setActiveCityId(importedData[0].id);
-          alert('✅ นำเข้าข้อมูลสำเร็จแล้ว!');
-        } else {
-          alert('❌ รูปแบบไฟล์ไม่ถูกต้อง กรุณาใช้ไฟล์ที่ส่งออกจากโปรแกรมนี้เท่านั้น');
-        }
-      } catch (err) {
-        alert('❌ เกิดข้อผิดพลาดในการอ่านไฟล์');
-      }
-    };
-    reader.readAsText(file);
-    event.target.value = null; // รีเซ็ต input เพื่อให้เลือกไฟล์เดิมซ้ำได้ถ้าต้องการ
+  const handleAddCity = () => {
+    const newCity = { ...activeCity, id: Date.now(), name: 'New Server' };
+    syncToCloud([...cities, newCity]);
+    setActiveCityId(newCity.id);
+  };
+
+  const handleDeleteCity = (id, e) => {
+    e.stopPropagation();
+    if (window.confirm('ยืนยันการลบเซิร์ฟเวอร์นี้สำหรับทุกคน?')) {
+      const newCities = cities.filter(c => c.id !== id);
+      syncToCloud(newCities);
+      if (activeCityId === id && newCities.length > 0) setActiveCityId(newCities[0].id);
+    }
+  };
+
+  const saveEditCity = (id) => {
+    const newCities = cities.map(c => c.id === id ? { ...c, name: editCityName } : c);
+    syncToCloud(newCities);
+    setEditingCityId(null);
+  };
+
+  const handleAddNewCategory = () => {
+    if(newCatName.trim()) {
+      updateCity(c => ({...c, recipes: [...c.recipes, { id: `r_${Date.now()}`, name: 'สูตรใหม่', category: newCatName.trim(), chance: 100, ingredients: [] }]}));
+      setNewCatName('');
+      setShowNewCatInput(false);
+    }
+  };
+
+  const startEditCity = (city, e) => {
+    e.stopPropagation();
+    setEditingCityId(city.id);
+    setEditCityName(city.name);
   };
 
   const handleTHBChange = (val) => {
@@ -300,33 +171,8 @@ export default function UltimateCraftingDashboard() {
     setCalcTHB(numTHB > 0 ? numTHB.toFixed(2) : '');
   };
 
-  const handleAddCity = () => {
-    const newCity = { ...activeCity, id: Date.now(), name: 'New Server' };
-    setCities([...cities, newCity]);
-    setActiveCityId(newCity.id);
-  };
-
-  const handleDeleteCity = (id, e) => {
-    e.stopPropagation();
-    if (window.confirm('ยืนยันการลบเซิร์ฟเวอร์นี้?')) {
-      const newCities = cities.filter(c => c.id !== id);
-      setCities(newCities);
-      if (activeCityId === id && newCities.length > 0) setActiveCityId(newCities[0].id);
-    }
-  };
-
-  const startEditCity = (city, e) => {
-    e.stopPropagation();
-    setEditingCityId(city.id);
-    setEditCityName(city.name);
-  };
-
-  const saveEditCity = (id) => {
-    setCities(cities.map(c => c.id === id ? { ...c, name: editCityName } : c));
-    setEditingCityId(null);
-  };
-
   const getUnitMultiplier = (unit) => {
+    if (!activeCity) return 0;
     const thbPerIg = activeCity.igRate / 1000000;
     const thbPerCash = thbPerIg; 
     switch(unit) {
@@ -343,24 +189,17 @@ export default function UltimateCraftingDashboard() {
   const getMaterialThb = (material) => material.cost * getUnitMultiplier(material.unit);
   const getRecipeTotal = (recipe) => {
     return recipe.ingredients.reduce((sum, ing) => {
-      const mat = activeCity.materials.find(m => m.id === ing.matId);
+      const mat = activeCity?.materials.find(m => m.id === ing.matId);
       return sum + (mat ? getMaterialThb(mat) * ing.qty : 0);
     }, 0);
   };
 
-  const updateCity = (updater) => {
-    setCities(cities.map(c => c.id === activeCityId ? updater(c) : c));
-  };
+  // หน้าจอตอนกำลังโหลดเชื่อมต่อฐานข้อมูล
+  if (!isLoaded) {
+    return <div style={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#0b0f19', color: '#fff', fontSize: '20px' }}>กำลังเชื่อมต่อฐานข้อมูล Cloud... ☁️</div>;
+  }
 
   const categories = Array.from(new Set(activeCity.recipes.map(r => r.category)));
-
-  const handleAddNewCategory = () => {
-    if(newCatName.trim()) {
-      updateCity(c => ({...c, recipes: [...c.recipes, { id: `r_${Date.now()}`, name: 'สูตรใหม่', category: newCatName.trim(), chance: 100, ingredients: [] }]}));
-      setNewCatName('');
-      setShowNewCatInput(false);
-    }
-  };
 
   return (
     <>
@@ -373,7 +212,10 @@ export default function UltimateCraftingDashboard() {
             <div style={{ background: 'linear-gradient(135deg, #38bdf8, #818cf8)', width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', boxShadow: '0 4px 12px rgba(56,189,248,0.3)', flexShrink: 0 }}>💎</div>
             <div>
               <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#fff' }}>EcoCraft Pro</div>
-              <div style={{ fontSize: '12px', color: '#64748b' }}>Dashboard v3.4</div>
+              <div style={{ fontSize: '12px', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div style={{ width: '6px', height: '6px', background: '#10b981', borderRadius: '50%', boxShadow: '0 0 6px #10b981' }}></div>
+                Cloud Sync (Real-time)
+              </div>
             </div>
           </div>
           
@@ -400,15 +242,9 @@ export default function UltimateCraftingDashboard() {
             ))}
           </div>
 
-          {/* ส่วนปุ่มจัดการข้อมูลที่เพิ่มใหม่ */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0, marginTop: 'auto' }}>
             <button className="btn btn-success" onClick={handleAddCity}>+ Add Server</button>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)' }} onClick={handleExportData}>📤 ส่งออก</button>
-              <button className="btn" style={{ flex: 1, background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.1)' }} onClick={() => fileInputRef.current.click()}>📥 นำเข้า</button>
-              {/* Input ซ่อนไว้สำหรับเลือกไฟล์ */}
-              <input type="file" accept=".json" ref={fileInputRef} style={{ display: 'none' }} onChange={handleImportData} />
-            </div>
+            <div style={{ fontSize: '11px', color: '#64748b', textAlign: 'center', marginTop: '4px' }}>*ข้อมูลบันทึกขึ้นระบบอัตโนมัติ</div>
           </div>
         </div>
 
@@ -416,10 +252,9 @@ export default function UltimateCraftingDashboard() {
         <div className="main-content">
           <div className="content-wrapper">
             
-            {/* Header Area */}
             <div className="header-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
               <div>
-                <h1 className="gradient-text" style={{ margin: '0 0 8px 0', fontSize: '36px', fontWeight: '700' }}>{activeCity.name}</h1>
+                <h1 className="gradient-text" style={{ margin: '0 0 8px 0', fontSize: '36px', fontWeight: '700' }}>{activeCity?.name}</h1>
                 <p style={{ margin: 0, color: '#94a3b8', fontSize: '15px' }}>Dynamic Economy & Recipe Calculator</p>
               </div>
               <button className={isRecipeEditMode ? "btn btn-success" : "btn btn-primary"} onClick={() => setIsRecipeEditMode(!isRecipeEditMode)}>
@@ -427,32 +262,26 @@ export default function UltimateCraftingDashboard() {
               </button>
             </div>
 
-            {/* Economy Rates (Top Row) */}
             <div className="top-stats-grid">
-              {/* แผง 1: เรทเงิน */}
               <div className="glass-panel stat-card">
                 <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>เรทเงินเซิร์ฟเวอร์ (1M IG)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#fff' }}>฿</span>
-                  <input type="number" className="pro-input" style={{ fontSize: '20px', fontWeight: 'bold', padding: '4px 10px' }} value={activeCity.igRate} onChange={e => updateCity(c => ({...c, igRate: Number(e.target.value)}))} />
+                  <input type="number" className="pro-input" style={{ fontSize: '20px', fontWeight: 'bold', padding: '4px 10px' }} value={activeCity?.igRate} onChange={e => updateCity(c => ({...c, igRate: Number(e.target.value)}))} />
                 </div>
               </div>
 
-              {/* แผง 2: ตลาดมืด */}
               <div className="glass-panel stat-card">
                 <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '4px' }}>เรทตลาดมืด (1 BM)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>$</span>
-                  <input type="number" className="pro-input" style={{ fontSize: '20px', fontWeight: 'bold', padding: '4px 10px' }} value={activeCity.bmToCash} onChange={e => updateCity(c => ({...c, bmToCash: Number(e.target.value)}))} />
+                  <input type="number" className="pro-input" style={{ fontSize: '20px', fontWeight: 'bold', padding: '4px 10px' }} value={activeCity?.bmToCash} onChange={e => updateCity(c => ({...c, bmToCash: Number(e.target.value)}))} />
                   <span style={{ color: '#64748b', fontSize: '14px' }}>Cash</span>
                 </div>
               </div>
 
-              {/* แผง 3: เครื่องคิดเลขแปลงเงิน */}
               <div className="glass-panel stat-card" style={{ gridColumn: 'span 1' }}>
-                <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  💱 เครื่องคิดเลขแปลงเงิน
-                </div>
+                <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '500', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>💱 เครื่องคิดเลขแปลงเงิน</div>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>เงินจริง (บาท)</div>
@@ -473,10 +302,8 @@ export default function UltimateCraftingDashboard() {
               </div>
             </div>
 
-            {/* Main Layout Grid */}
             <div className="content-grid">
               
-              {/* Left Column: Materials */}
               <div className="glass-panel">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                   <h3 style={{ margin: 0, fontSize: '18px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>📦 ฐานข้อมูลวัตถุดิบ</h3>
@@ -497,7 +324,7 @@ export default function UltimateCraftingDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {activeCity.materials.map(mat => (
+                      {activeCity?.materials.map(mat => (
                         <tr key={mat.id} className="table-row">
                           <td style={{ padding: '8px' }}>
                             <input className="pro-input" style={{ minWidth: '100px' }} value={mat.name} onChange={e => updateCity(c => ({...c, materials: c.materials.map(m => m.id === mat.id ? {...m, name: e.target.value} : m)}))} />
@@ -523,7 +350,6 @@ export default function UltimateCraftingDashboard() {
                 </div>
               </div>
 
-              {/* Right Column: Recipes */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {categories.map(cat => (
                   <div key={cat} className="glass-panel">
@@ -531,10 +357,9 @@ export default function UltimateCraftingDashboard() {
                       🛠️ {cat}
                     </div>
                     
-                    {activeCity.recipes.filter(r => r.category === cat).map(recipe => (
+                    {activeCity?.recipes.filter(r => r.category === cat).map(recipe => (
                       <div key={recipe.id} style={{ padding: '16px', background: 'rgba(0,0,0,0.15)', borderRadius: '12px', marginBottom: '12px', border: '1px solid rgba(255,255,255,0.02)' }}>
                         
-                        {/* View Mode */}
                         {!isRecipeEditMode && (
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                             <div style={{ flex: '1 1 min-content' }}>
@@ -554,7 +379,6 @@ export default function UltimateCraftingDashboard() {
                           </div>
                         )}
 
-                        {/* Edit Mode */}
                         {isRecipeEditMode && (
                           <div>
                             <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
